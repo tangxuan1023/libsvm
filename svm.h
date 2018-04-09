@@ -78,7 +78,7 @@ struct svm_parameter
 
 	/* these are for training only */
 	double cache_size; /* in MB */  // 制定训练所需要的内存，默认是40M
-	double eps;	/* stopping criteria */   // 
+	double eps;	/* stopping criteria */   // 误差限
 	double C;	/* for C_SVC, EPSILON_SVR and NU_SVR */  // 惩罚因子，越大，训练的模型耗的时间越多
 	int nr_weight;		/* for C_SVC */  // 权重的数目，目前在实例代码中只有两个值，一个是默认0，另外一个是`svm_binary_svc_probability`函数中使用数值2
 	int *weight_label;	/* for C_SVC */  // 权重，元素个数由nr_weight决定

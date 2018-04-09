@@ -448,20 +448,23 @@ public:
 		double *alpha_, double Cp, double Cn, double eps,
 		SolutionInfo* si, int shrinking);
 protected:
-	int active_size;
-	schar *y;
-	double *G;		// gradient of objective function
+	int active_size; // 计算时实际参加运算的样本数目，经过shrink处理后，该数目会小于全部样本总数
+	schar *y;        // 样本所属类别，该值只取+1或-1 
+	double *G;		 // gradient of objective function   // 公式 /* \f$(Q * \alpha + p)_t = grad(f(\alpha))_t = G_t\f$. */
+
+	// \alpha[i]的状态，根据情况分为\alpha[i] ≤ 0, \alpha[i] ≥ c, 0 < \alpha[i] < 0 分别对应内部点(非SV)，错分点(BSV)和支持向量(SV)。
+
 	enum { LOWER_BOUND, UPPER_BOUND, FREE };
-	char *alpha_status;	// LOWER_BOUND, UPPER_BOUND, FREE
-	double *alpha;
-	const QMatrix *Q;
-	const double *QD;
-	double eps;
-	double Cp, Cn;
-	double *p;
+	char *alpha_status;	// LOWER_BOUND, UPPER_BOUND, FREE 
+	double *alpha;    // 指向\alpha[i]
+	const QMatrix *Q; // 指定核，核函数和Solver结合，可以产生多种SVC，SVR 
+	const double *QD; // TODO(tangxuan): 
+	double eps;  // 误差限 
+	double Cp, Cn; // TODO(tangxuan): 惩罚因子, 设置不同的Cp和Cn是为了处理数据的不平衡
+	double *p;  // 参见梯度G计算公式
 	int *active_set;
 	double *G_bar;		// gradient, if we treat free variables as 0
-	int l;
+	int l;     // 样本总数
 	bool unshrink;	// XXX
 
 	double get_C(int i)
@@ -488,6 +491,7 @@ private:
 	bool be_shrunk(int i, double Gmax1, double Gmax2);
 };
 
+/* 完全交换样本i和样本j的内容，包括所申请的内存的地址 */
 void Solver::swap_index(int i, int j)
 {
 	Q->swap_index(i, j);
