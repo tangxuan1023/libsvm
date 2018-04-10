@@ -42,30 +42,63 @@ struct svm_problem
 	struct svm_node **x; // 指向一个存储内容为`svm_node`指针的数组
 };
 
-/**/
-enum { C_SVC, NU_SVC, ONE_CLASS, EPSILON_SVR, NU_SVR };	/* svm_type */
-
+/* svm_type */
 enum { 
-	/* Linear kernel. 
-	没有做特征空间映射，线性判别（或回归）是在原始特征空间中完成，参数少，速度快
-	\f$K(x_i, x_j) = x_i^T x_j\f$. */  
-	LINEAR, // 公式 1-1
+	/** C-Support Vector Classification. n-class classification (n \f$\geq\f$ 2), allows
+	* imperfect separation of classes with penalty multiplier C for outliers. 
+	*/
+	C_SVC,
 
-	/* Polynomial kernel. 
-	\f$K(x_i, x_j) = (\gamma x_i^T x_j + coef0)^{degree}, \gamma > 0\f$. */
-	POLY,  // 公式 1-2
+	/** \f$\nu\f$-Support Vector Classification. n-class classification with possible
+	* imperfect separation. Parameter \f$\nu\f$ (in the range 0..1, the larger the value, the smoother
+	* the decision boundary) is used instead of C. 
+	*/
+	NU_SVC, 
 
-	/* Radial basis function (RBF).
-	\f$K(x_i, x_j) = e^{-\gamma ||x_i - x_j||^2}, \gamma > 0\f$. */
-	RBF,  // 公式 1-3
+	/** Distribution Estimation (One-class %SVM). All the training data are from
+	* the same class, %SVM builds a boundary that separates the class from the rest of the feature
+	* space. 
+	*/
+	ONE_CLASS, 
 
-	/* Sigmoid kernel.
-	\f$K(x_i, x_j) = \tanh(\gamma x_i^T x_j + coef0)\f$. */
-	SIGMOID, // 公式 1-4
+	/** \f$\epsilon\f$-Support Vector Regression. The distance between feature vectors
+	* from the training set and the fitting hyper-plane must be less than p. For outliers the
+	* penalty multiplier C is used. 
+	*/
+	EPSILON_SVR, 
+
+	/** \f$\nu\f$-Support Vector Regression. \f$\nu\f$ is used instead of p.
+	* See @cite LibSVM for details. 
+	*/
+	NU_SVR 
+};
+
+/* kernel_type */
+enum { 
+	/** Linear kernel. 
+	* 没有做特征空间映射，线性判别（或回归）是在原始特征空间中完成，参数少，速度快
+	* \f$K(x_i, x_j) = x_i^T x_j\f$. 
+	*/  // 公式 1-1
+	LINEAR, 
+
+	/** Polynomial kernel. 
+	* \f$K(x_i, x_j) = (\gamma x_i^T x_j + coef0)^{degree}, \gamma > 0\f$. 
+	*/ // 公式 1-2
+	POLY, 
+
+	/** Radial basis function (RBF).
+	* \f$K(x_i, x_j) = e^{-\gamma ||x_i - x_j||^2}, \gamma > 0\f$. 
+	*/ // 公式 1-3
+	RBF,  
+
+	/** Sigmoid kernel.
+	* \f$K(x_i, x_j) = \tanh(\gamma x_i^T x_j + coef0)\f$. 
+	*/ // 公式 1-4
+	SIGMOID,
 
 	/**/
 	PRECOMPUTED 
-}; /* kernel_type */
+}; 
 
 /* 参数设置参看 `kernel_type` 中的 '公式 1-1 ~ 1-4 ' */
 struct svm_parameter
