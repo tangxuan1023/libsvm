@@ -2262,6 +2262,9 @@ svm_model *svm_train(const svm_problem *prob, const svm_parameter *param)
 			}
 
 		free(label);
+		// TODO(tangxuan): if (param->probability) == false
+		// then probA == NULL; probB == NULL;
+		// can it do free???
 		free(probA);
 		free(probB);
 		free(count);
