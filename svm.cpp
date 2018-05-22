@@ -661,6 +661,12 @@ void Solver::Solve(int l, const QMatrix& Q, const double *p_, const schar *y_,
 		++iter;
 
 		// update alpha[i] and alpha[j], handle bounds carefully
+	    /**
+		* 其更新的思路是保证
+        * \f$\alpha_i^{new}y_i +\alpha_j^{new}y_j = \alpha_i^{old}y_i +\alpha_j^{old}y_j\f$
+        * 对于边界情况，有特殊处理，主要是考虑
+        * 0\leq \alpha_i \leq C_i的要求，保证其和同原来相等
+		*/
 
 		const Qfloat *Q_i = Q.get_Q(i, active_size);
 		const Qfloat *Q_j = Q.get_Q(j, active_size);
@@ -741,6 +747,7 @@ void Solver::Solve(int l, const QMatrix& Q, const double *p_, const schar *y_,
 		}
 
 		// update G
+	    // 更新 G(i), 根据\alpha_i \alpha_j的变化更新
 
 		double delta_alpha_i = alpha[i] - old_alpha_i;
 		double delta_alpha_j = alpha[j] - old_alpha_j;
@@ -750,15 +757,15 @@ void Solver::Solve(int l, const QMatrix& Q, const double *p_, const schar *y_,
 		}
 
 		// update alpha_status and G_bar
-
+		// 根据\alpha状态前后是否有变化，适当更新
 		{
 			bool ui = is_upper_bound(i);
 			bool uj = is_upper_bound(j);
 			update_alpha_status(i);
 			update_alpha_status(j);
-			// 据 alpha 状态前后是否有变化，适当更新
+
 			int k;
-			if (ui != is_upper_bound(i)) {
+			if (ui != is_upper_bound(i)) {  // 更新\alpha_i的影响
 				Q_i = Q.get_Q(i, l);
 				if (ui)
 					for (k = 0; k < l; k++)
@@ -768,7 +775,7 @@ void Solver::Solve(int l, const QMatrix& Q, const double *p_, const schar *y_,
 						G_bar[k] += C_i * Q_i[k];
 			}
 
-			if (uj != is_upper_bound(j)) {
+			if (uj != is_upper_bound(j)) {  // 更新\alpha_j的影响
 				Q_j = Q.get_Q(j, l);
 				if (uj)
 					for (k = 0; k < l; k++)
@@ -997,7 +1004,7 @@ void Solver::do_shrinking()
 
 /**
 * 计算\rho值，公式为
-* \f$r_1 = \frac{\sum_{0<\alpha<C,yi=1} grad(f(\alpha )_i)}{\sum_{0<\alpha<C,yi=1} 1} \f$
+* \f$r_1 = \frac{\sum_{0<\alpha<C,yi=1} grad(f(\alpha)_i)}{\sum_{0<\alpha<C,yi=1} 1} \f$
 * \f$\rho = \frac{r_1 + r_2}{2}\f$
 */
 double Solver::calculate_rho()
@@ -1045,7 +1052,7 @@ public:
 	Solver_NU() {}
 	void Solve(int l, const QMatrix& Q, const double *p, const schar *y,
 		double *alpha, double Cp, double Cn, double eps,
-		SolutionInfo* si, int shrinking)
+		SolutionInfo* si, int shrinking)  // 完全调用 Solver::Solve
 	{
 		this->si = si;
 		Solver::Solve(l, Q, p, y, alpha, Cp, Cn, eps, si, shrinking);
@@ -1059,6 +1066,7 @@ private:
 };
 
 // return 1 if already optimal, return 0 otherwise
+// 选择工作集
 int Solver_NU::select_working_set(int &out_i, int &out_j)
 {
 	// return i,j such that y_i = y_j and
@@ -1274,7 +1282,7 @@ class SVC_Q : public Kernel
 {
 public:
 	SVC_Q(const svm_problem& prob, const svm_parameter& param, const schar *y_)
-		:Kernel(prob.l, prob.x, param)
+		:Kernel(prob.l, prob.x, param) // 将样本数据和参数传入
 	{
 		clone(y, y_, prob.l);
 		cache = new Cache(prob.l, (long int)(param.cache_size*(1 << 20)));
@@ -1283,7 +1291,7 @@ public:
 			QD[i] = (this->*kernel_function)(i, i);
 	}
 
-	Qfloat *get_Q(int i, int len) const
+	Qfloat *get_Q(int i, int len) const // 函数与其他同类相比，在于核函数不同
 	{
 		Qfloat *data;
 		int start, j;
@@ -1319,6 +1327,7 @@ private:
 	double *QD;
 };
 
+// 只处理1类分类问题, 故不保留y[i], 编号只有1类
 class ONE_CLASS_Q : public Kernel
 {
 public:
@@ -1337,6 +1346,7 @@ public:
 		int start, j;
 		if ((start = cache->get_data(i, &data, len)) < len) {
 			for (j = start; j < len; j++)
+				// 函数中没有y[i], y[j], 即只处理一类 
 				data[j] = (Qfloat)(this->*kernel_function)(i, j);
 		}
 		return data;
@@ -1349,6 +1359,7 @@ public:
 
 	void swap_index(int i, int j) const
 	{
+		// 没有执行swap(y[i], y[j]);
 		cache->swap_index(i, j);
 		Kernel::swap_index(i, j);
 		swap(QD[i], QD[j]);
@@ -1364,6 +1375,7 @@ private:
 	double *QD;
 };
 
+// 该类用于做回归
 class SVR_Q : public Kernel
 {
 public:
@@ -1440,6 +1452,14 @@ private:
 //
 // construct and solve various formulations
 //
+
+// 静态函数, 访问及作用域限定于本文件
+
+/*
+* 公式 \f$ 1/2\alpha^TQ\alpha + \rho^T\alpha \f$
+* \rho^T为全-1, 另外\alpha[i]=0, 保证y^T\alpha = 0的限制条件, 
+* 在选择工作集后更新\alpha时，仍能保证该限制条件 
+*/
 static void solve_c_svc(
 	const svm_problem *prob, const svm_parameter* param,
 	double *alpha, Solver::SolutionInfo* si, double Cp, double Cn)
@@ -1474,6 +1494,9 @@ static void solve_c_svc(
 	delete[] y;
 }
 
+/*
+* \rho^T为全0, \alpha[i]能保证e^T\alpha = 0, y^T\alpha = 0
+*/
 static void solve_nu_svc(
 	const svm_problem *prob, const svm_parameter *param,
 	double *alpha, Solver::SolutionInfo* si)
@@ -1528,6 +1551,11 @@ static void solve_nu_svc(
 	delete[] zeros;
 }
 
+/*
+* 前vl个\alpha为1, 此后的\alpha全为0, 
+* 初始条件满足限制条件e^T\alpha = vl, 
+* \rho^T为全0, y为全1 
+*/
 static void solve_one_class(
 	const svm_problem *prob, const svm_parameter *param,
 	double *alpha, Solver::SolutionInfo* si)
@@ -1559,6 +1587,7 @@ static void solve_one_class(
 	delete[] ones;
 }
 
+// 用于回归
 static void solve_epsilon_svr(
 	const svm_problem *prob, const svm_parameter *param,
 	double *alpha, Solver::SolutionInfo* si)
@@ -1595,6 +1624,7 @@ static void solve_epsilon_svr(
 	delete[] y;
 }
 
+// 用于回归
 static void solve_nu_svr(
 	const svm_problem *prob, const svm_parameter *param,
 	double *alpha, Solver::SolutionInfo* si)
@@ -2046,9 +2076,12 @@ static void svm_group_classes(const svm_problem *prob, int *nr_class_ret, int **
 	free(data_label);
 }
 
+
 //
 // Interface functions
 //
+// TODO(tangxuan): read code here. 2018-05-22-14
+// 接口函数
 svm_model *svm_train(const svm_problem *prob, const svm_parameter *param)
 {
 	svm_model *model = Malloc(svm_model, 1);
@@ -2283,6 +2316,7 @@ svm_model *svm_train(const svm_problem *prob, const svm_parameter *param)
 }
 
 // Stratified cross validation
+// 分层交叉验证
 void svm_cross_validation(const svm_problem *prob, const svm_parameter *param, int nr_fold, double *target)
 {
 	int i;
@@ -2392,7 +2426,6 @@ void svm_cross_validation(const svm_problem *prob, const svm_parameter *param, i
 	free(fold_start);
 	free(perm);
 }
-
 
 int svm_get_svm_type(const svm_model *model)
 {
